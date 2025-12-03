@@ -1,4 +1,7 @@
 const wrapper = document.getElementById("wrapper");
+import { createEngine } from "../_shared/engine.js";
+
+const { finish } = createEngine();
 
 // Affiche la grille immédiatement
 wrapper.classList.add("show");
@@ -30,6 +33,9 @@ images.forEach((img, index) => {
         setTimeout(() => {
           wrapper.style.display = "none";
         }, 500);
+        setTimeout(() => {
+          finish();
+        }, 1000);
       }, 1000);
     }
   });

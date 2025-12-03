@@ -460,6 +460,7 @@ function animate() {
     const outroElapsed = (Date.now() - outroStartTime) / 1000;
     const delayBeforeOutro = 4; // Délai de 4 secondes
     const outroDuration = 0.8;
+    finish();
 
     if (outroElapsed > delayBeforeOutro) {
       const animationTime = outroElapsed - delayBeforeOutro;
