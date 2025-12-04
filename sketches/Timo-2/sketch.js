@@ -12,23 +12,39 @@ arrowImage.src = "./arrow.png";
 let imageSize = 400;
 let mini = 0.3; // Facteur de scale (0 = invisible, 1 = taille normale)
 
+run(update);
+
+let sketchStarted = false;
+function update() {
+  if (!sketchStarted) {
+    sketchStarted = true;
+    animate();
+  }
+}
+
+window.addEventListener("keypress", (e) => {
+  if (e.key === "f" || e.key === "F") {
+    finish();
+  }
+});
+
 const fixedPoints = [
-  { x: 660, y: 860, radius: 5, magnetPower: 200 },
-  { x: 660, y: 540, radius: 5, magnetPower: 200 },
-  { x: 1520, y: 260, radius: 5, magnetPower: 200 },
-  { x: 2260, y: 260, radius: 5, magnetPower: 200 },
-  { x: 2550, y: 540, radius: 5, magnetPower: 200 },
-  { x: 2550, y: 980, radius: 5, magnetPower: 200 },
-  { x: 2020, y: 1520, radius: 5, magnetPower: 200 },
-  { x: 2550, y: 1520, radius: 5, magnetPower: 200 },
-  { x: 2550, y: 1940, radius: 5, magnetPower: 200 },
-  { x: 660, y: 1940, radius: 5, magnetPower: 200 },
-  { x: 2140, y: 800, radius: 5, magnetPower: 200 },
-  { x: 2140, y: 700, radius: 5, magnetPower: 200 },
-  { x: 2050, y: 620, radius: 5, magnetPower: 200 },
-  { x: 1780, y: 620, radius: 5, magnetPower: 200 },
-  { x: 1700, y: 700, radius: 5, magnetPower: 200 },
-  { x: 1700, y: 880, radius: 5, magnetPower: 200 },
+  { x: 660, y: 860, radius: 5, magnetPower: 500 },
+  { x: 660, y: 540, radius: 5, magnetPower: 500 },
+  { x: 1520, y: 260, radius: 5, magnetPower: 500 },
+  { x: 2260, y: 260, radius: 5, magnetPower: 500 },
+  { x: 2550, y: 540, radius: 5, magnetPower: 500 },
+  { x: 2550, y: 980, radius: 5, magnetPower: 500 },
+  { x: 2020, y: 1520, radius: 5, magnetPower: 500 },
+  { x: 2550, y: 1520, radius: 5, magnetPower: 500 },
+  { x: 2550, y: 1940, radius: 5, magnetPower: 500 },
+  { x: 660, y: 1940, radius: 5, magnetPower: 500 },
+  { x: 2140, y: 800, radius: 5, magnetPower: 500 },
+  { x: 2140, y: 700, radius: 5, magnetPower: 500 },
+  { x: 2050, y: 620, radius: 5, magnetPower: 500 },
+  { x: 1780, y: 620, radius: 5, magnetPower: 500 },
+  { x: 1700, y: 700, radius: 5, magnetPower: 500 },
+  { x: 1700, y: 880, radius: 5, magnetPower: 500 },
 ];
 
 const draggablePoints = [
@@ -308,7 +324,7 @@ const draggablePoints = [
   },
 ];
 
-let startTime = Date.now();
+let startTime = null;
 let allMagnetized = false;
 let outroStartTime = null;
 let shapeOpacity = 1;
@@ -340,7 +356,7 @@ function draw() {
     ctx.fillStyle = `rgba(255, 0, 0, ${shapeOpacity})`;
     ctx.fill();
     ctx.strokeStyle = `rgba(255, 255, 255, ${shapeOpacity})`;
-    ctx.lineWidth = 1;
+    ctx.lineWidth = 10;
     ctx.stroke();
   }
 
@@ -379,6 +395,7 @@ function draw() {
 }
 
 function animate() {
+  if (!startTime) startTime = Date.now();
   const elapsed = (Date.now() - startTime) / 1000;
 
   // Animer l'apparition des points
@@ -547,9 +564,8 @@ window.addEventListener("keydown", (e) => {
   }
 });
 
-draw();
-animate();
+// draw();
 
 arrowImage.onload = () => {
-  draw();
+  // draw();
 };

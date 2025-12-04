@@ -10,6 +10,12 @@ wrapper.classList.add("show");
 const images = document.querySelectorAll(".grid img");
 const rotations = []; // Stocke les rotations actuelles
 
+window.addEventListener("keypress", (e) => {
+  if (e.key === "f" || e.key === "F") {
+    finish();
+  }
+});
+
 images.forEach((img, index) => {
   // Rotation aléatoire initiale (0°, 90°, 180° ou 270°)
   const randomRotation = Math.floor(Math.random() * 4) * 90;
