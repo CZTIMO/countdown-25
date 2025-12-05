@@ -14,6 +14,16 @@ let outroStarted = false;
 let outroScheduled = false;
 let outroTimer = null;
 
+// Son pour les interactions
+const clickSound = new Audio("./click.mp3");
+clickSound.preload = "auto";
+
+function playClickSound() {
+  const sound = clickSound.cloneNode();
+  sound.volume = 0.09;
+  sound.play().catch((e) => console.log("Audio play failed:", e));
+}
+
 // Pattern pour former le chiffre "1" sur une grille 20x20
 // 0 = zoom à 20%, 1 = zoom à 50% (bordure), 2 = zoom à 100% (centre)
 const pattern2 = [
@@ -58,6 +68,7 @@ function createGrid(size) {
     container.appendChild(img);
 
     container.addEventListener("click", () => {
+      playClickSound();
       if (gridSize < maxGridSize) {
         gridSize++;
         createGrid(gridSize);
@@ -77,11 +88,20 @@ function createGrid(size) {
 }
 
 let scrollProgress = 0;
+let lastScrollTime = 0;
 
 window.addEventListener("wheel", (e) => {
   if (!canScroll || gridSize !== maxGridSize) return;
 
   e.preventDefault();
+
+  // Jouer le son à chaque scroll, mais pas trop rapidement
+  const now = Date.now();
+  if (now - lastScrollTime > 50) {
+    playClickSound();
+    lastScrollTime = now;
+  }
+
   scrollProgress += e.deltaY * 0.001;
   scrollProgress = Math.max(0, Math.min(1, scrollProgress));
 
@@ -152,10 +172,10 @@ function startOutro() {
 
   setTimeout(() => {
     grid.innerHTML = "";
-  }, 900);
+  }, 800);
   setTimeout(() => {
     finish();
-  }, 1500);
+  }, 1000);
 }
 
 // Démarre automatiquement

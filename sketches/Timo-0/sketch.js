@@ -3,70 +3,113 @@ import { createSpringSettings, Spring } from "../_shared/spring.js";
 
 const { renderer, input, math, run, finish } = createEngine();
 const { ctx, canvas } = renderer;
-run(update);
 
-const spring = new Spring({
-  position: 0,
-});
+// Configuration constants
+const CONFIG = {
+  SQUARE_SIZE: 450,
+  SOUND_DELAY_MS: 50,
+  FLEE_DISTANCE: 0.3,
+  INTRO_WAIT_MS: 2000,
+  INTRO_SCALE_MS: 500,
+  VOLUME: 0.05,
+  PATH_POINTS: 1000,
+  ELLIPSE_RATIO: 1.3,
+  PATH_RADIUS_RATIO: 0.3,
+  SPRING_FREQUENCY: 1.5,
+  SPRING_HALF_LIFE: 0.1,
+};
 
+// State management
+const state = {
+  intro: {
+    startTime: null,
+    soundPlayed: false,
+    complete: false,
+    imageScale: 0,
+  },
+  game: {
+    visitedPoints: new Set(),
+    previousIndex: 0,
+    lastSoundTime: 0,
+    complete: false,
+    currentPointIndex: 0,
+  },
+  closing: {
+    active: false,
+    startTime: null,
+    duration: 800,
+  },
+};
+
+// Audio setup
+let audioContext;
+let audioBuffer;
+
+function initAudio() {
+  audioContext = new (window.AudioContext || window.webkitAudioContext)();
+
+  fetch("./ERROR.mp3")
+    .then((response) => response.arrayBuffer())
+    .then((arrayBuffer) => audioContext.decodeAudioData(arrayBuffer))
+    .then((buffer) => {
+      audioBuffer = buffer;
+      console.log("Audio loaded successfully");
+    })
+    .catch((e) => console.log("Audio load failed:", e));
+}
+
+function playSound() {
+  if (!audioBuffer || !audioContext) return;
+
+  const now = Date.now();
+  if (now - state.game.lastSoundTime < CONFIG.SOUND_DELAY_MS) return;
+
+  state.game.lastSoundTime = now;
+
+  const source = audioContext.createBufferSource();
+  const gainNode = audioContext.createGain();
+  gainNode.gain.value = CONFIG.VOLUME;
+  source.buffer = audioBuffer;
+  source.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+  source.start(0);
+}
+
+function playIntroSound() {
+  if (!audioBuffer || !audioContext) return;
+
+  const source = audioContext.createBufferSource();
+  const gainNode = audioContext.createGain();
+  gainNode.gain.value = CONFIG.VOLUME;
+  source.buffer = audioBuffer;
+  source.connect(gainNode);
+  gainNode.connect(audioContext.destination);
+  source.start(0);
+}
+
+// Initialize audio
+initAudio();
+
+// Spring setup
+const spring = new Spring({ position: 0 });
 const settings = createSpringSettings({
-  frequency: 1.5,
-  halfLife: 0.1,
+  frequency: CONFIG.SPRING_FREQUENCY,
+  halfLife: CONFIG.SPRING_HALF_LIFE,
 });
-
 spring.settings = settings;
 
-// Carré qui se déplace
-const squareSize = 450;
-let visitedPoints = new Set(); // Points déjà visités
-let previousIndex = 0; // Pour tracer le chemin continu
-let audioEnabled = true; // Audio activé par défaut
-let lastSoundTime = 0; // Pour gérer le délai entre les sons
-const soundDelay = 50; // Délai en ms entre chaque son (ajustable)
-
-// Variables pour l'intro
-let introStartTime = null;
-let waitDuration = 2000; // 2 secondes d'attente (écran noir)
-let scaleDuration = 500; // 0.5 seconde pour le scale
-let introComplete = false;
-let imageScale = 0; // Scale de l'image pendant l'intro
-let introSoundPlayed = false; // Pour jouer le son une seule fois
-
-// Charger l'image
+// Load image
 const scrollImage = new Image();
 scrollImage.src = "./POPUP.png";
 
-// Fonction pour jouer le son (crée une nouvelle instance à chaque fois)
-function playErrorSound() {
-  const now = Date.now();
-  if (now - lastSoundTime < soundDelay) return; // Respecter le délai
-
-  lastSoundTime = now;
-  const sound = new Audio("./ERROR.mp3");
-  sound.volume = 0.15; // Volume à 15% pour éviter la saturation
-  sound.play().catch((e) => {
-    console.log("Audio play failed:", e);
-  });
-}
-
-// Fonction pour jouer le son de l'intro (sans délai)
-function playIntroSound() {
-  const sound = new Audio("./ERROR.mp3");
-  sound.volume = 0.15;
-  sound.play().catch((e) => {
-    console.log("Audio play failed:", e);
-  });
-}
-
-// Créer le chemin du "0"
+// Create the "0" path
 function createZeroPath(centerX, centerY, radius) {
   const points = [];
-  const numPoints = 1000;
 
-  for (let i = 0; i <= numPoints; i++) {
-    const angle = (i / numPoints) * Math.PI * 2;
+  for (let i = 0; i <= CONFIG.PATH_POINTS; i++) {
+    const angle = (i / CONFIG.PATH_POINTS) * Math.PI * 2;
     const x = centerX + Math.cos(angle) * radius;
-    const y = centerY + Math.sin(angle) * radius * 1.3; // Ellipse
+    const y = centerY + Math.sin(angle) * radius * CONFIG.ELLIPSE_RATIO;
     points.push({ x, y });
   }
 
@@ -75,162 +118,153 @@ function createZeroPath(centerX, centerY, radius) {
 
 const centerX = canvas.width / 2;
 const centerY = canvas.height / 2;
-const radius = Math.min(canvas.width, canvas.height) * 0.3;
+const radius = Math.min(canvas.width, canvas.height) * CONFIG.PATH_RADIUS_RATIO;
 const zeroPath = createZeroPath(centerX, centerY, radius);
 
-// Fonction pour marquer tous les points entre deux indices (en gérant le parcours circulaire)
-function markPointsBetween(startIndex, endIndex, pathLength, isHovering) {
+// Mark points between two indices (handling circular path)
+function markPointsBetween(startIndex, endIndex, pathLength, shouldPlaySound) {
+  let newPointsMarked = false;
+
   if (startIndex === endIndex) {
-    if (!visitedPoints.has(startIndex)) {
-      visitedPoints.add(startIndex);
+    if (!state.game.visitedPoints.has(startIndex)) {
+      state.game.visitedPoints.add(startIndex);
+      newPointsMarked = true;
     }
-    if (isHovering) {
-      playErrorSound(); // Son si on survole
+  } else {
+    // Calculate shortest path direction
+    const forwardDist = (endIndex - startIndex + pathLength) % pathLength;
+    const backwardDist = (startIndex - endIndex + pathLength) % pathLength;
+
+    if (forwardDist <= backwardDist) {
+      // Move forward
+      let current = startIndex;
+      while (current !== endIndex) {
+        if (!state.game.visitedPoints.has(current)) {
+          state.game.visitedPoints.add(current);
+          newPointsMarked = true;
+        }
+        current = (current + 1) % pathLength;
+      }
+    } else {
+      // Move backward
+      let current = startIndex;
+      while (current !== endIndex) {
+        if (!state.game.visitedPoints.has(current)) {
+          state.game.visitedPoints.add(current);
+          newPointsMarked = true;
+        }
+        current = (current - 1 + pathLength) % pathLength;
+      }
+    }
+
+    // Mark end point
+    if (!state.game.visitedPoints.has(endIndex)) {
+      state.game.visitedPoints.add(endIndex);
+      newPointsMarked = true;
+    }
+  }
+
+  // Play sound once if new points were marked and hovering
+  if (shouldPlaySound && newPointsMarked) {
+    playSound();
+  }
+}
+
+// Easing function for intro animation
+function easeOutCubic(t) {
+  return 1 - Math.pow(1 - t, 3);
+}
+
+// Draw image at position
+function drawImage(x, y, size) {
+  if (scrollImage.complete) {
+    ctx.drawImage(scrollImage, x - size / 2, y - size / 2, size, size);
+  } else {
+    ctx.fillStyle = "white";
+    ctx.fillRect(x - size / 2, y - size / 2, size, size);
+  }
+}
+
+// Update intro sequence
+function updateIntro(elapsedTime) {
+  // Phase 1: Black screen wait
+  if (elapsedTime < CONFIG.INTRO_WAIT_MS) {
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    return true; // Continue intro
+  }
+
+  // Phase 2: Scale animation
+  const scaleElapsed = elapsedTime - CONFIG.INTRO_WAIT_MS;
+  if (scaleElapsed < CONFIG.INTRO_SCALE_MS) {
+    const progress = scaleElapsed / CONFIG.INTRO_SCALE_MS;
+    state.intro.imageScale = easeOutCubic(progress);
+
+    // Play sound at start of scale
+    if (!state.intro.soundPlayed) {
+      playIntroSound();
+      state.intro.soundPlayed = true;
+    }
+
+    // Draw black background
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    // Draw scaled image at center
+    const pos = zeroPath[0];
+    const scaledSize = CONFIG.SQUARE_SIZE * state.intro.imageScale;
+    drawImage(pos.x, pos.y, scaledSize);
+
+    return true; // Continue intro
+  }
+
+  // Intro complete
+  state.intro.complete = true;
+  state.intro.imageScale = 1;
+  state.game.visitedPoints.add(0);
+  return false;
+}
+
+// Update game state
+function updateGame(dt) {
+  // Check if all points visited
+  if (state.game.visitedPoints.size >= zeroPath.length) {
+    if (!state.game.complete) {
+      state.game.complete = true;
+      canvas.style.cursor = "pointer";
+    }
+
+    // Draw final state
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+    for (let pointIndex of state.game.visitedPoints) {
+      const visitedPos = zeroPath[pointIndex];
+      drawImage(visitedPos.x, visitedPos.y, CONFIG.SQUARE_SIZE);
     }
     return;
   }
 
-  // Calculer la distance dans les deux directions
-  const forwardDist = (endIndex - startIndex + pathLength) % pathLength;
-  const backwardDist = (startIndex - endIndex + pathLength) % pathLength;
-
-  // Choisir le chemin le plus court
-  if (forwardDist <= backwardDist) {
-    // Aller en avant
-    let current = startIndex;
-    while (current !== endIndex) {
-      visitedPoints.add(current);
-      if (isHovering) {
-        playErrorSound(); // Son pour chaque point si on survole
-      }
-      current = (current + 1) % pathLength;
-    }
-    visitedPoints.add(endIndex);
-    if (isHovering) {
-      playErrorSound(); // Son pour le dernier point
-    }
-  } else {
-    // Aller en arrière
-    let current = startIndex;
-    while (current !== endIndex) {
-      visitedPoints.add(current);
-      if (isHovering) {
-        playErrorSound(); // Son pour chaque point si on survole
-      }
-      current = (current - 1 + pathLength) % pathLength;
-    }
-    visitedPoints.add(endIndex);
-    if (isHovering) {
-      playErrorSound(); // Son pour le dernier point
-    }
-  }
-}
-
-function update(dt) {
-  // Initialiser le temps de début de l'intro
-  if (introStartTime === null) {
-    introStartTime = Date.now();
-  }
-
-  const elapsedTime = Date.now() - introStartTime;
-
-  // Gérer l'intro
-  if (!introComplete) {
-    // Phase 1: Écran noir pendant 2 secondes
-    if (elapsedTime < waitDuration) {
-      ctx.fillStyle = "black";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-      return;
-    }
-
-    // Phase 2: Animation de scale pendant 0.5 seconde
-    const scaleElapsed = elapsedTime - waitDuration;
-    if (scaleElapsed < scaleDuration) {
-      const progress = scaleElapsed / scaleDuration;
-      imageScale = easeOutCubic(progress);
-
-      // Jouer le son au début du scale
-      if (!introSoundPlayed) {
-        playIntroSound();
-        introSoundPlayed = true;
-      }
-
-      // Dessiner l'écran noir
-      ctx.fillStyle = "black";
-      ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-      // Dessiner l'image au centre avec scale
-      const pos = zeroPath[0];
-      const scaledSize = squareSize * imageScale;
-
-      if (scrollImage.complete) {
-        ctx.drawImage(
-          scrollImage,
-          pos.x - scaledSize / 2,
-          pos.y - scaledSize / 2,
-          scaledSize,
-          scaledSize
-        );
-      } else {
-        ctx.fillStyle = "white";
-        ctx.fillRect(
-          pos.x - scaledSize / 2,
-          pos.y - scaledSize / 2,
-          scaledSize,
-          scaledSize
-        );
-      }
-
-      return;
-    } else {
-      // Intro terminée
-      introComplete = true;
-      imageScale = 1;
-      visitedPoints.add(0); // Marquer le premier point comme visité
-    }
-  }
-
-  // Vérifier si on a visité tous les points
-  if (visitedPoints.size >= zeroPath.length - 1) {
-    // Tout est rempli, affichage final
-    ctx.fillStyle = "black";
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    // Dessiner tous les points visités
-    for (let pointIndex of visitedPoints) {
-      const visitedPos = zeroPath[pointIndex];
-      if (scrollImage.complete) {
-        ctx.drawImage(
-          scrollImage,
-          visitedPos.x - squareSize / 2,
-          visitedPos.y - squareSize / 2,
-          squareSize,
-          squareSize
-        );
-      }
-    }
-    return; // Ne plus continuer l'update
-  }
-
-  // Récupérer la position de la souris
+  // Get mouse position
   const mouseX = input.getX();
   const mouseY = input.getY();
 
-  // Position actuelle du carré
+  // Calculate current position on path
   let progress = spring.position % 1;
-  if (progress < 0) progress += 1; // Gérer les valeurs négatives
+  if (progress < 0) progress += 1;
   const currentPointIndex = Math.floor(progress * (zeroPath.length - 1));
+  state.game.currentPointIndex = currentPointIndex;
   const pos = zeroPath[currentPointIndex];
 
-  // Vérifier si la souris survole le carré
+  // Check if mouse is hovering over square
   const isHoveringSquare =
-    mouseX >= pos.x - squareSize / 2 &&
-    mouseX <= pos.x + squareSize / 2 &&
-    mouseY >= pos.y - squareSize / 2 &&
-    mouseY <= pos.y + squareSize / 2;
+    mouseX >= pos.x - CONFIG.SQUARE_SIZE / 2 &&
+    mouseX <= pos.x + CONFIG.SQUARE_SIZE / 2 &&
+    mouseY >= pos.y - CONFIG.SQUARE_SIZE / 2 &&
+    mouseY <= pos.y + CONFIG.SQUARE_SIZE / 2;
 
   if (isHoveringSquare) {
-    // Déterminer de quel côté vient la souris
+    // Determine which direction to flee
     const nextIndex = (currentPointIndex + 1) % zeroPath.length;
     const prevIndex =
       (currentPointIndex - 1 + zeroPath.length) % zeroPath.length;
@@ -238,87 +272,103 @@ function update(dt) {
     const nextPos = zeroPath[nextIndex];
     const prevPos = zeroPath[prevIndex];
 
-    // Distance de la souris au point suivant vs point précédent
-    const distToNext = Math.sqrt(
-      (mouseX - nextPos.x) ** 2 + (mouseY - nextPos.y) ** 2
-    );
-    const distToPrev = Math.sqrt(
-      (mouseX - prevPos.x) ** 2 + (mouseY - prevPos.y) ** 2
-    );
+    const distToNext = Math.hypot(mouseX - nextPos.x, mouseY - nextPos.y);
+    const distToPrev = Math.hypot(mouseX - prevPos.x, mouseY - prevPos.y);
 
-    // Fuir dans la direction opposée à la souris
+    // Flee away from mouse
     if (distToNext < distToPrev) {
-      // La souris vient du côté "suivant", donc fuir vers l'arrière
-      spring.target = spring.position - 0.3;
+      spring.target = spring.position - CONFIG.FLEE_DISTANCE;
     } else {
-      // La souris vient du côté "précédent", donc fuir vers l'avant
-      spring.target = spring.position + 0.3;
+      spring.target = spring.position + CONFIG.FLEE_DISTANCE;
     }
   } else {
-    // Garder la position actuelle
     spring.target = spring.position;
   }
 
   spring.step(dt);
 
-  // Marquer tous les points entre la dernière position et la position actuelle
+  // Mark all points between previous and current position
   markPointsBetween(
-    previousIndex,
+    state.game.previousIndex,
     currentPointIndex,
     zeroPath.length,
     isHoveringSquare
   );
 
-  // Mettre à jour l'index précédent
-  previousIndex = currentPointIndex;
+  state.game.previousIndex = currentPointIndex;
 
-  // Dessiner le fond noir
+  // Draw everything
   ctx.fillStyle = "black";
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // Dessiner tous les carrés laissés derrière
-  for (let pointIndex of visitedPoints) {
+  // Draw all visited points
+  for (let pointIndex of state.game.visitedPoints) {
     const visitedPos = zeroPath[pointIndex];
-    if (scrollImage.complete) {
-      ctx.drawImage(
-        scrollImage,
-        visitedPos.x - squareSize / 2,
-        visitedPos.y - squareSize / 2,
-        squareSize,
-        squareSize
-      );
-    } else {
-      ctx.fillStyle = "white";
-      ctx.fillRect(
-        visitedPos.x - squareSize / 2,
-        visitedPos.y - squareSize / 2,
-        squareSize,
-        squareSize
-      );
-    }
+    drawImage(visitedPos.x, visitedPos.y, CONFIG.SQUARE_SIZE);
   }
 
-  // Dessiner l'image actuelle (par-dessus)
-  if (scrollImage.complete) {
-    ctx.drawImage(
-      scrollImage,
-      pos.x - squareSize / 2,
-      pos.y - squareSize / 2,
-      squareSize,
-      squareSize
-    );
+  // Draw current position on top
+  drawImage(pos.x, pos.y, CONFIG.SQUARE_SIZE);
+}
+
+// Update closing animation
+function updateClosing(elapsedTime) {
+  const progress = Math.min(elapsedTime / state.closing.duration, 1);
+  const scale = 1 - easeOutCubic(progress);
+
+  // Draw black background
+  ctx.fillStyle = "black";
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Draw all images with decreasing scale
+  for (let pointIndex of state.game.visitedPoints) {
+    const visitedPos = zeroPath[pointIndex];
+    const scaledSize = CONFIG.SQUARE_SIZE * scale;
+    drawImage(visitedPos.x, visitedPos.y, scaledSize);
+  }
+
+  // Animation complete - just show black screen
+  if (progress >= 1) {
+    ctx.fillStyle = "black";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+  }
+}
+
+// Main update loop
+function update(dt) {
+  // Initialize intro start time
+  if (state.intro.startTime === null) {
+    state.intro.startTime = Date.now();
+  }
+
+  // Handle closing animation
+  if (state.closing.active) {
+    const elapsedTime = Date.now() - state.closing.startTime;
+    updateClosing(elapsedTime);
+    return;
+  }
+
+  const elapsedTime = Date.now() - state.intro.startTime;
+
+  // Handle intro or game
+  if (!state.intro.complete) {
+    updateIntro(elapsedTime);
   } else {
-    ctx.fillStyle = "white";
-    ctx.fillRect(
-      pos.x - squareSize / 2,
-      pos.y - squareSize / 2,
-      squareSize,
-      squareSize
-    );
+    updateGame(dt);
   }
 }
 
-// Fonction easing pour l'animation de scale
-function easeOutCubic(t) {
-  return 1 - Math.pow(1 - t, 3);
-}
+// Click handler
+canvas.addEventListener("click", (e) => {
+  if (!state.game.complete || state.closing.active) return;
+
+  // Start closing animation
+  state.closing.active = true;
+  state.closing.startTime = Date.now();
+  canvas.style.cursor = "default";
+
+  // Play closing sound
+  playSound();
+});
+
+run(update);

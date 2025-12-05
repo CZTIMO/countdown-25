@@ -4,12 +4,20 @@ import { Spring } from "../_shared/spring.js";
 const { renderer, input, math, run, finish } = createEngine();
 const { ctx, canvas } = renderer;
 
-// Charger l'image
+// Charger les images
 const arrowImage = new Image();
 arrowImage.src = "./arrow.png";
 
+const stopSignImage = new Image();
+stopSignImage.src = "./stop_sign.png";
+
+// Charger le son de rebond
+const bounceSound = new Audio("./bounce.mp3");
+bounceSound.preload = "auto";
+bounceSound.volume = 0.4;
+
 // Taille de l'image pour les points
-let imageSize = 400;
+let imageSize = 700;
 let mini = 0.3; // Facteur de scale (0 = invisible, 1 = taille normale)
 
 run(update);
@@ -29,300 +37,59 @@ window.addEventListener("keypress", (e) => {
 });
 
 const fixedPoints = [
-  { x: 660, y: 860, radius: 5, magnetPower: 500 },
-  { x: 660, y: 540, radius: 5, magnetPower: 500 },
-  { x: 1520, y: 260, radius: 5, magnetPower: 500 },
-  { x: 2260, y: 260, radius: 5, magnetPower: 500 },
-  { x: 2550, y: 540, radius: 5, magnetPower: 500 },
-  { x: 2550, y: 980, radius: 5, magnetPower: 500 },
-  { x: 2020, y: 1520, radius: 5, magnetPower: 500 },
-  { x: 2550, y: 1520, radius: 5, magnetPower: 500 },
-  { x: 2550, y: 1940, radius: 5, magnetPower: 500 },
-  { x: 660, y: 1940, radius: 5, magnetPower: 500 },
-  { x: 2140, y: 800, radius: 5, magnetPower: 500 },
-  { x: 2140, y: 700, radius: 5, magnetPower: 500 },
-  { x: 2050, y: 620, radius: 5, magnetPower: 500 },
-  { x: 1780, y: 620, radius: 5, magnetPower: 500 },
-  { x: 1700, y: 700, radius: 5, magnetPower: 500 },
-  { x: 1700, y: 880, radius: 5, magnetPower: 500 },
+  { x: 660, y: 860, radius: 5, magnetPower: 1000 },
+  { x: 660, y: 540, radius: 5, magnetPower: 1000 },
+  { x: 1520, y: 260, radius: 5, magnetPower: 1000 },
+  { x: 2260, y: 260, radius: 5, magnetPower: 1000 },
+  { x: 2550, y: 540, radius: 5, magnetPower: 1000 },
+  { x: 2550, y: 980, radius: 5, magnetPower: 1000 },
+  { x: 2020, y: 1520, radius: 5, magnetPower: 1000 },
+  { x: 2550, y: 1520, radius: 5, magnetPower: 1000 },
+  { x: 2550, y: 1940, radius: 5, magnetPower: 1000 },
+  { x: 660, y: 1940, radius: 5, magnetPower: 1000 },
+  { x: 2140, y: 800, radius: 5, magnetPower: 1000 },
+  { x: 2140, y: 700, radius: 5, magnetPower: 1000 },
+  { x: 2050, y: 620, radius: 5, magnetPower: 1000 },
+  { x: 1780, y: 620, radius: 5, magnetPower: 1000 },
+  { x: 1700, y: 700, radius: 5, magnetPower: 1000 },
+  { x: 1700, y: 880, radius: 5, magnetPower: 1000 },
 ];
 
-const draggablePoints = [
-  {
-    x: canvas.width / 2 - 450,
-    y: canvas.height / 2,
-    initialX: canvas.width / 2 - 450,
-    initialY: canvas.height / 2,
-    vx: 0,
-    vy: 0,
-    radius: 5,
-    isDragging: false,
-    isAnimating: false,
-    isMagnetized: false,
-    fixedPointIndex: 0,
-    // Propriétés pour l'animation d'apparition
-    introScale: 0,
-    introDelay: 0,
-    introStarted: false,
-    // Propriétés pour l'animation de sortie
-    outroScale: 1,
-  },
-  {
-    x: canvas.width / 2 - 390,
-    y: canvas.height / 2,
-    initialX: canvas.width / 2 - 390,
-    initialY: canvas.height / 2,
-    vx: 0,
-    vy: 0,
-    radius: 5,
-    isDragging: false,
-    isAnimating: false,
-    isMagnetized: false,
-    fixedPointIndex: 1,
-    introScale: 0,
-    introDelay: 0.05,
-    introStarted: false,
-    outroScale: 1,
-  },
-  {
-    x: canvas.width / 2 - 330,
-    y: canvas.height / 2,
-    initialX: canvas.width / 2 - 330,
-    initialY: canvas.height / 2,
-    vx: 0,
-    vy: 0,
-    radius: 5,
-    isDragging: false,
-    isAnimating: false,
-    isMagnetized: false,
-    fixedPointIndex: 2,
-    introScale: 0,
-    introDelay: 0.1,
-    introStarted: false,
-    outroScale: 1,
-  },
-  {
-    x: canvas.width / 2 - 270,
-    y: canvas.height / 2,
-    initialX: canvas.width / 2 - 270,
-    initialY: canvas.height / 2,
-    vx: 0,
-    vy: 0,
-    radius: 5,
-    isDragging: false,
-    isAnimating: false,
-    isMagnetized: false,
-    fixedPointIndex: 3,
-    introScale: 0,
-    introDelay: 0.15,
-    introStarted: false,
-    outroScale: 1,
-  },
-  {
-    x: canvas.width / 2 - 210,
-    y: canvas.height / 2,
-    initialX: canvas.width / 2 - 210,
-    initialY: canvas.height / 2,
-    vx: 0,
-    vy: 0,
-    radius: 5,
-    isDragging: false,
-    isAnimating: false,
-    isMagnetized: false,
-    fixedPointIndex: 4,
-    introScale: 0,
-    introDelay: 0.2,
-    introStarted: false,
-    outroScale: 1,
-  },
-  {
-    x: canvas.width / 2 - 150,
-    y: canvas.height / 2,
-    initialX: canvas.width / 2 - 150,
-    initialY: canvas.height / 2,
-    vx: 0,
-    vy: 0,
-    radius: 5,
-    isDragging: false,
-    isAnimating: false,
-    isMagnetized: false,
-    fixedPointIndex: 5,
-    introScale: 0,
-    introDelay: 0.25,
-    introStarted: false,
-    outroScale: 1,
-  },
-  {
-    x: canvas.width / 2 - 90,
-    y: canvas.height / 2,
-    initialX: canvas.width / 2 - 90,
-    initialY: canvas.height / 2,
-    vx: 0,
-    vy: 0,
-    radius: 5,
-    isDragging: false,
-    isAnimating: false,
-    isMagnetized: false,
-    fixedPointIndex: 6,
-    introScale: 0,
-    introDelay: 0.3,
-    introStarted: false,
-    outroScale: 1,
-  },
-  {
-    x: canvas.width / 2 - 30,
-    y: canvas.height / 2,
-    initialX: canvas.width / 2 - 30,
-    initialY: canvas.height / 2,
-    vx: 0,
-    vy: 0,
-    radius: 5,
-    isDragging: false,
-    isAnimating: false,
-    isMagnetized: false,
-    fixedPointIndex: 7,
-    introScale: 0,
-    introDelay: 0.35,
-    introStarted: false,
-    outroScale: 1,
-  },
-  {
-    x: canvas.width / 2 + 30,
-    y: canvas.height / 2,
-    initialX: canvas.width / 2 + 30,
-    initialY: canvas.height / 2,
-    vx: 0,
-    vy: 0,
-    radius: 5,
-    isDragging: false,
-    isAnimating: false,
-    isMagnetized: false,
-    fixedPointIndex: 8,
-    introScale: 0,
-    introDelay: 0.4,
-    introStarted: false,
-    outroScale: 1,
-  },
-  {
-    x: canvas.width / 2 + 90,
-    y: canvas.height / 2,
-    initialX: canvas.width / 2 + 90,
-    initialY: canvas.height / 2,
-    vx: 0,
-    vy: 0,
-    radius: 5,
-    isDragging: false,
-    isAnimating: false,
-    isMagnetized: false,
-    fixedPointIndex: 9,
-    introScale: 0,
-    introDelay: 0.45,
-    introStarted: false,
-    outroScale: 1,
-  },
-  {
-    x: canvas.width / 2 + 150,
-    y: canvas.height / 2,
-    initialX: canvas.width / 2 + 150,
-    initialY: canvas.height / 2,
-    vx: 0,
-    vy: 0,
-    radius: 5,
-    isDragging: false,
-    isAnimating: false,
-    isMagnetized: false,
-    fixedPointIndex: 10,
-    introScale: 0,
-    introDelay: 0.5,
-    introStarted: false,
-    outroScale: 1,
-  },
-  {
-    x: canvas.width / 2 + 210,
-    y: canvas.height / 2,
-    initialX: canvas.width / 2 + 210,
-    initialY: canvas.height / 2,
-    vx: 0,
-    vy: 0,
-    radius: 5,
-    isDragging: false,
-    isAnimating: false,
-    isMagnetized: false,
-    fixedPointIndex: 11,
-    introScale: 0,
-    introDelay: 0.55,
-    introStarted: false,
-    outroScale: 1,
-  },
-  {
-    x: canvas.width / 2 + 270,
-    y: canvas.height / 2,
-    initialX: canvas.width / 2 + 270,
-    initialY: canvas.height / 2,
-    vx: 0,
-    vy: 0,
-    radius: 5,
-    isDragging: false,
-    isAnimating: false,
-    isMagnetized: false,
-    fixedPointIndex: 12,
-    introScale: 0,
-    introDelay: 0.6,
-    introStarted: false,
-    outroScale: 1,
-  },
-  {
-    x: canvas.width / 2 + 330,
-    y: canvas.height / 2,
-    initialX: canvas.width / 2 + 330,
-    initialY: canvas.height / 2,
-    vx: 0,
-    vy: 0,
-    radius: 5,
-    isDragging: false,
-    isAnimating: false,
-    isMagnetized: false,
-    fixedPointIndex: 13,
-    introScale: 0,
-    introDelay: 0.65,
-    introStarted: false,
-    outroScale: 1,
-  },
-  {
-    x: canvas.width / 2 + 390,
-    y: canvas.height / 2,
-    initialX: canvas.width / 2 + 390,
-    initialY: canvas.height / 2,
-    vx: 0,
-    vy: 0,
-    radius: 5,
-    isDragging: false,
-    isAnimating: false,
-    isMagnetized: false,
-    fixedPointIndex: 14,
-    introScale: 0,
-    introDelay: 0.7,
-    introStarted: false,
-    outroScale: 1,
-  },
-  {
-    x: canvas.width / 2 + 450,
-    y: canvas.height / 2,
-    initialX: canvas.width / 2 + 450,
-    initialY: canvas.height / 2,
-    vx: 0,
-    vy: 0,
-    radius: 5,
-    isDragging: false,
-    isAnimating: false,
-    isMagnetized: false,
-    fixedPointIndex: 15,
-    introScale: 0,
-    introDelay: 0.75,
-    introStarted: false,
-    outroScale: 1,
-  },
-];
+// Fonction pour créer les points répartis sur toute la largeur
+function createDraggablePoints() {
+  const points = [];
+  const numPoints = 16;
+  const margin = 100; // Marge de chaque côté
+  const startX = margin;
+  const endX = canvas.width - margin;
+  const spacing = (endX - startX) / (numPoints - 1);
+  const yPosition = canvas.height / 2;
+
+  for (let i = 0; i < numPoints; i++) {
+    const xPosition = startX + i * spacing;
+    points.push({
+      x: xPosition,
+      y: yPosition,
+      initialX: xPosition,
+      initialY: yPosition,
+      vx: 0,
+      vy: 0,
+      radius: 5,
+      isDragging: false,
+      isAnimating: false,
+      isMagnetized: false,
+      fixedPointIndex: i,
+      introScale: 0,
+      introDelay: i * 0.05,
+      introStarted: false,
+      outroScale: 1,
+    });
+  }
+
+  return points;
+}
+
+const draggablePoints = createDraggablePoints();
 
 let startTime = null;
 let allMagnetized = false;
@@ -353,10 +120,10 @@ function draw() {
     }
 
     ctx.closePath();
-    ctx.fillStyle = `rgba(255, 0, 0, ${shapeOpacity})`;
+    ctx.fillStyle = `rgba(0, 0, 0, ${shapeOpacity})`;
     ctx.fill();
     ctx.strokeStyle = `rgba(255, 255, 255, ${shapeOpacity})`;
-    ctx.lineWidth = 10;
+    ctx.lineWidth = 20;
     ctx.stroke();
   }
 
@@ -370,26 +137,38 @@ function draw() {
 
   // Dessiner les points déplaçables avec rotation vers leur point fixe
   draggablePoints.forEach((point) => {
-    if (arrowImage.complete && point.introScale > 0 && point.outroScale > 0) {
-      // Calculer l'angle vers le point fixe associé
+    if (point.introScale > 0 && point.outroScale > 0) {
+      // Calculer l'angle et la distance vers le point fixe associé
       const associatedFixed = fixedPoints[point.fixedPointIndex];
       const dx = associatedFixed.x - point.x;
       const dy = associatedFixed.y - point.y;
-      // Calculer l'angle en radians et ajouter 180 degrés (Math.PI)
-      const angle = Math.atan2(dy, dx) + Math.PI;
+      const distanceToFixed = Math.sqrt(dx * dx + dy * dy);
 
-      const scaledSize = imageSize * mini * point.introScale * point.outroScale;
-      ctx.save();
-      ctx.translate(point.x, point.y);
-      ctx.rotate(angle);
-      ctx.drawImage(
-        arrowImage,
-        -scaledSize / 2,
-        -scaledSize / 2,
-        scaledSize,
-        scaledSize
-      );
-      ctx.restore();
+      // Choisir l'image selon la distance
+      const imageToUse = distanceToFixed < 100 ? stopSignImage : arrowImage;
+
+      if (imageToUse.complete) {
+        const scaledSize =
+          imageSize * mini * point.introScale * point.outroScale;
+        ctx.save();
+        ctx.translate(point.x, point.y);
+
+        // Appliquer la rotation seulement pour l'image arrow
+        if (imageToUse === arrowImage) {
+          // Calculer l'angle en radians et ajouter 180 degrés (Math.PI)
+          const angle = Math.atan2(dy, dx) + Math.PI;
+          ctx.rotate(angle);
+        }
+
+        ctx.drawImage(
+          imageToUse,
+          -scaledSize / 2,
+          -scaledSize / 2,
+          scaledSize,
+          scaledSize
+        );
+        ctx.restore();
+      }
     }
   });
 }
@@ -477,7 +256,6 @@ function animate() {
     const outroElapsed = (Date.now() - outroStartTime) / 1000;
     const delayBeforeOutro = 4; // Délai de 4 secondes
     const outroDuration = 0.8;
-    finish();
 
     if (outroElapsed > delayBeforeOutro) {
       const animationTime = outroElapsed - delayBeforeOutro;
@@ -499,6 +277,7 @@ function animate() {
           point.outroScale = 0;
         });
         shapeOpacity = 0;
+        finish(); // Appeler finish() après l'animation
       }
     }
   }
@@ -510,7 +289,7 @@ function animate() {
 function isMouseOverPoint(mouseX, mouseY, point) {
   const dx = mouseX - point.x;
   const dy = mouseY - point.y;
-  return Math.sqrt(dx * dx + dy * dy) <= imageSize / 2;
+  return Math.sqrt(dx * dx + dy * dy) <= imageSize / 6;
 }
 
 canvas.addEventListener("mousedown", (e) => {
@@ -544,6 +323,15 @@ canvas.addEventListener("mouseup", () => {
     if (point.isDragging) {
       point.isDragging = false;
       point.isAnimating = true;
+
+      // Jouer le son de rebond au relâchement
+      try {
+        // remettre à zéro pour autoriser les lectures rapprochées
+        bounceSound.currentTime = 0;
+        bounceSound.play();
+      } catch (e) {
+        // ignorer les erreurs de lecture (autoplay policy, fichier manquant...)
+      }
     }
   });
 });
@@ -563,8 +351,6 @@ window.addEventListener("keydown", (e) => {
     moveAllPointsToTargets();
   }
 });
-
-// draw();
 
 arrowImage.onload = () => {
   // draw();
