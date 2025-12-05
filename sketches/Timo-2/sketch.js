@@ -12,9 +12,9 @@ const stopSignImage = new Image();
 stopSignImage.src = "./stop_sign.png";
 
 // Charger le son de rebond
-const bounceSound = new Audio("./bounce.mp3");
+const bounceSound = new Audio("./click.mp3");
 bounceSound.preload = "auto";
-bounceSound.volume = 0.4;
+bounceSound.volume = 0.6;
 
 // Taille de l'image pour les points
 let imageSize = 700;

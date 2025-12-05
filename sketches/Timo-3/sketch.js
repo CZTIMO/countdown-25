@@ -1,11 +1,18 @@
 const wrapper = document.getElementById("wrapper");
 import { createEngine } from "../_shared/engine.js";
 
-const { finish } = createEngine();
+const { finish, run } = createEngine();
 
 // Charge le son de rotation
 const rotateSound = new Audio("./click.mp3");
 rotateSound.volume = 0.2; // Baisse le volume à 30%
+
+// Charge le son d'entrée (swoosh) pour chaque image
+const swooshSound = new Audio("./swoosh.mp3");
+swooshSound.preload = "auto";
+swooshSound.volume = 0.001;
+// Ordonnanceur pour espacer les swoosh (en ms)
+let nextSwooshTime = 0; // timestamp en ms du prochain créneau libre
 
 // Affiche la grille immédiatement
 wrapper.classList.add("show");
@@ -49,6 +56,26 @@ function animateImagesEntry() {
 
     // Délai progressif pour chaque image (200ms entre chaque)
     setTimeout(() => {
+      // Planifier la lecture du swoosh en respectant un délai minimum de 300ms entre lectures
+      const now = Date.now();
+      const minGap = 250; // ms
+      const scheduled = Math.max(now, nextSwooshTime);
+      const delayToPlay = Math.max(0, scheduled - now);
+
+      // Planifier la lecture (clone pour permettre chevauchement contrôlé)
+      setTimeout(() => {
+        try {
+          const s = swooshSound.cloneNode();
+          s.currentTime = 0;
+          s.play();
+        } catch (e) {
+          // Ignorer les erreurs de lecture
+        }
+      }, delayToPlay);
+
+      // Mettre à jour le prochain créneau libre
+      nextSwooshTime = scheduled + minGap;
+
       img.classList.add(`enter-${directions[index]}`);
     }, index * 200);
   });
@@ -65,9 +92,6 @@ function animateImagesEntry() {
     });
   }, images.length * 200 + 600); // 600ms = durée de l'animation
 }
-
-// Lance l'animation d'entrée
-animateImagesEntry();
 
 images.forEach((img, index) => {
   img.addEventListener("click", () => {
@@ -101,3 +125,15 @@ images.forEach((img, index) => {
     }
   });
 });
+
+run(update);
+
+let started = false;
+function update() {
+  if (!started) {
+    started = true;
+    // Lance l'animation d'entrée
+    animateImagesEntry();
+    // Any setup code that needs to run once
+  }
+}

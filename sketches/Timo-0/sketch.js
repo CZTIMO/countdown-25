@@ -6,13 +6,13 @@ const { ctx, canvas } = renderer;
 
 // Configuration constants
 const CONFIG = {
-  SQUARE_SIZE: 450,
+  SQUARE_SIZE: 400,
   SOUND_DELAY_MS: 50,
   FLEE_DISTANCE: 0.3,
   INTRO_WAIT_MS: 2000,
   INTRO_SCALE_MS: 500,
-  VOLUME: 0.05,
-  PATH_POINTS: 1000,
+  VOLUME: 0.09,
+  PATH_POINTS: 500,
   ELLIPSE_RATIO: 1.3,
   PATH_RADIUS_RATIO: 0.3,
   SPRING_FREQUENCY: 1.5,
@@ -369,6 +369,7 @@ canvas.addEventListener("click", (e) => {
 
   // Play closing sound
   playSound();
+  setTimeout(finish, 3000);
 });
 
 run(update);
